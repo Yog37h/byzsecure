@@ -1,4 +1,3 @@
-import habana_frameworks.torch.core as htcore
 import warnings
 warnings.filterwarnings('ignore')
 import torch
@@ -20,10 +19,13 @@ from src.aggregation import server_avg, server_dyn
 from src.plugin import plugin
 from src.update import BenignUpdate, CompromisedUpdate
 
+# Import debugging functions
+from debug_main import run_debug_suite, suggest_optimizations, debug_args_config
+
 if __name__ == '__main__':
     # parse args
     args = args_parser()
-    args.device = torch.device('mps')
+    args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     writer = SummaryWriter(f'runs/') if args.tsboard else None
 
@@ -32,6 +34,18 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
 
     dataset_train, dataset_test, dataset_val = load_data(args)
+    
+    # Auto-detect number of classes if using CIFAR-10 fallback
+    if hasattr(dataset_train, 'classes'):
+        # CIFAR-10 case
+        args.num_classes = len(dataset_train.classes)
+        print(f"Detected {args.num_classes} classes (using CIFAR-10)")
+    elif hasattr(dataset_train, 'dataset') and hasattr(dataset_train.dataset, 'classes'):
+        # Subset case (CIFAR-10 with train/val split)
+        args.num_classes = len(dataset_train.dataset.classes)
+        print(f"Detected {args.num_classes} classes (using CIFAR-10)")
+    else:
+        print(f"Using {args.num_classes} classes (from args)")
     
     # early stopping hyperparameters
     cnt = 0
@@ -55,6 +69,31 @@ if __name__ == '__main__':
     idxs_users = [i for i in range(args.num_clients)]
     print(idxs_users)
     print(compromised_idxs)
+    
+    # Run debug suite if debug mode is enabled
+    if args.debug:
+        print("🔍 Running comprehensive debug suite...")
+        debug_args_config(args)
+        run_debug_suite(
+            model=net_glob,
+            dataset_train=dataset_train,
+            dataset_test=dataset_test,
+            dict_users=dict_users,
+            compromised_idxs=compromised_idxs,
+            args=args
+        )
+        
+        # Suggest optimizations based on current performance
+        suggest_optimizations(current_time_per_iteration=123.21)  # Your reported time
+        
+        # Ask user if they want to continue with full training
+        try:
+            response = input("Continue with full training? (y/n): ")
+            if response.lower() != 'y':
+                print("Exiting for optimization...")
+                exit()
+        except:
+            print("Running in non-interactive mode, continuing with training...")
     
     controls = {}
     

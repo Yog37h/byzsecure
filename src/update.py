@@ -1,4 +1,3 @@
-import habana_frameworks.torch.core as htcore
 import copy
 
 import torch
@@ -53,7 +52,6 @@ class BenignUpdate(object):
                             loss_correct += torch.sum(torch.pow(pl - pg, 2))
                         loss_correct *= self.args.lamb
                         loss_correct.backward()
-                        htcore.mark_step()
                 else:
                     loss = self.loss_func(logits, labels.squeeze(dim=-1))
                 
@@ -67,11 +65,9 @@ class BenignUpdate(object):
                 if self.args.method not in ['fedsam', 'fedspeed']:
                     optimizer.zero_grad()
                     loss.backward()
-                    htcore.mark_step()
                 
                 nn.utils.clip_grad_norm_(net.parameters(), max_norm=1.0)
                 optimizer.step()
-                htcore.mark_step()
 
         return net.state_dict()
 
@@ -100,10 +96,8 @@ class CompromisedUpdate(object):
                 loss = self.loss_func(logits, labels.squeeze(dim=-1))
 
                 loss.backward()
-                htcore.mark_step()
                 
                 optimizer.step()
-                htcore.mark_step()
 
         for w, w_t in zip(net_freeze.parameters(), net.parameters()):
             w_t.data = (w_t.data - w.data) * self.args.mp_alpha
@@ -160,7 +154,6 @@ class ESAM(torch.optim.Optimizer):
         loss = loss_func(predictions, labels)
         self.zero_grad()
         loss.backward()
-        htcore.mark_step()
 
         self.first_step()
 
@@ -168,10 +161,8 @@ class ESAM(torch.optim.Optimizer):
         loss = alpha * loss_func(predictions, labels)
         self.zero_grad()
         loss.backward()
-        htcore.mark_step()
 
         self.second_step()
-        htcore.mark_step()
 
     def _grad_norm(self):
         norm = torch.norm(torch.stack([
