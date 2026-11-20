@@ -60,14 +60,16 @@ entropy divergence, reverse KL, and magnitude consistency. Moreover, the framewo
 reputation-based weightings and decentralized consensus approaches. In addition, the
 system adopts a lightweight hash-chained audit ledger employing SHA-256 hash chaining
 with two-thirds consensus providing tamper-evident verification for auditability purposes.
-Experimentally, SecFedRL achieves a 98\% average per-round detection rate and 100\%
-cumulative detection (True Positive Rate) against Byzantine attacks on the
-CartPole-v1, LunarLander-v2, and Pendulum-v1 tasks with 10--50 agents and up to 30\%
-Byzantines (95\% at 40\% Byzantines), attaining 88--97\% task success rates across
-environments (CartPole: 97\%, LunarLander: 96\%, Pendulum: 88\%) and generating
-362--521\% higher episodic rewards than the undefended FedAvg baseline across tested
-environments (CartPole-v1: +521\%, LunarLander-v2: +362\%, Pendulum-v1: +78\% absolute
-reward improvement), with a computational overhead of ${<}8.3\%$.
+Experimentally, under non-adaptive Untargeted and Targeted Model Poisoning (UMP/TMP)
+attacks, SecFedRL achieves a 98\% average per-round detection rate and 100\% cumulative
+True Positive Rate (each Byzantine agent flagged at least once within 25--45 rounds)
+against Byzantine attacks on the CartPole-v1, LunarLander-v2, and Pendulum-v1 tasks with
+10--50 agents and up to 30\% Byzantines (95\% average per-round detection rate at 40\%
+Byzantines), attaining 88--97\% task success rates across environments (CartPole: 97\%,
+LunarLander: 96\%, Pendulum: 88\%) and generating 362--521\% higher episodic rewards than
+the undefended FedAvg baseline across tested environments (CartPole-v1: +521\%,
+LunarLander-v2: +362\%, Pendulum-v1: +78\% absolute reward improvement), with a
+computational overhead of ${<}8.3\%$.
 \end{abstract}
 
 \noindent\textbf{Keywords:} Federated RL, Byzantine Resilience, P2P FRL, Secure
@@ -184,24 +186,41 @@ a modest computational overhead of 4.2--8.3\%.
 
 The \textbf{primary technical contribution} of SecFedRL is a \textit{ground-truth-free
 policy-space Byzantine detection} mechanism: rather than comparing raw gradient or
-parameter vectors (as all prior Byzantine defenses do), SecFedRL evaluates peers by
-running their models on shared synthetic states from each agent's replay buffer and
-measuring seven behavioral consistency metrics. This policy-space approach is
-fundamentally different from parameter-space defenses (Krum~\cite{ref19}, Trimmed
-Mean~\cite{ref22}) and does not require knowledge of the number of malicious agents or
-access to labeled validation data.
+parameter vectors (as all prior Byzantine defenses do, including parameter-space
+methods such as OptiGradTrust~\cite{ref1} which applies RL-based trust weighting over
+gradient features), SecFedRL evaluates peers by running their models on shared
+synthetic states from each agent's replay buffer and measuring seven behavioral
+consistency metrics. This policy-space approach is fundamentally different from
+parameter-space defenses (Krum~\cite{ref19}, Trimmed Mean~\cite{ref22},
+OptiGradTrust~\cite{ref1}) and does not require knowledge of the number of malicious
+agents or access to labeled validation data.
 
 Building on this core detection, SecFedRL integrates three supporting
 components---reputation-aware aggregation, checkpoint-based collapse prevention, and
 lightweight hash-chained consensus---forming a complete, fully decentralized
 Byzantine-resilient FRL framework. The specific contributions are:
 \begin{itemize}
-  \item A fully decentralized Byzantine-resilient FRL framework tailored to the attack
-        characteristics of reinforcement learning is proposed.
-  \item A virtual-trajectory-based multi-metric consistency scoring mechanism is
-        introduced for accurate malicious update detection without ground-truth labels.
-  \item The effectiveness and generality of the proposed approach are validated through
-        comprehensive reinforcement learning benchmarks.
+  \item \textbf{Virtual-trajectory-based multi-metric policy-space detection} (primary):
+        A ground-truth-free mechanism that evaluates peer model behavior using 100 states
+        drawn from the local replay buffer and seven complementary behavioral metrics
+        (KL divergence, cosine similarity, policy agreement, value alignment, entropy
+        divergence, reverse KL, gradient magnitude consistency), producing a composite
+        z-score suspicion score without any central coordinator or ground-truth labels.
+        Unlike parameter-space defenses, this mechanism operates entirely in policy space.
+  \item \textbf{Integrated reputation-aware aggregation and collapse prevention:}
+        A reputation scoring mechanism ($r_j(t)$, Eq.~\ref{eq:reputation}) that tracks
+        long-term peer reliability combined with a checkpoint-based recovery system
+        (Eq.~\ref{eq:recovery}) that prevents catastrophic policy collapse when a reward
+        drop exceeding 20\% is detected---both operating without central coordination.
+  \item \textbf{Fully decentralized Byzantine-resilient FRL framework:} A complete P2P
+        FRL architecture that combines the above detection and aggregation components
+        with decentralized two-thirds consensus voting (Eq.~\ref{eq:consensus}) and a
+        hash-chained audit ledger, tailored to the stochastic exploration and non-IID
+        trajectory distributions of reinforcement learning.
+  \item \textbf{Comprehensive empirical validation:} Evaluation on CartPole-v1,
+        LunarLander-v2, and Pendulum-v1 under non-adaptive UMP and TMP Byzantine attacks
+        demonstrates strong robustness, with performance generalizing across discrete,
+        sparse-reward, and continuous control settings.
 \end{itemize}
 
 %% ════════════════════════════════════════════════════════════════════════
@@ -342,7 +361,7 @@ learning defence mechanisms across seven key capability dimensions.
 
 \begin{table}[htbp]
 \centering
-\caption{Comparison of Existing Approaches with SecFedRL}
+\caption{Design Property Comparison of Existing Approaches with SecFedRL}
 \label{tab:comparison}
 \footnotesize
 \resizebox{\linewidth}{!}{%
@@ -727,8 +746,28 @@ for the fixed hyperparameter used in the consensus vote count threshold).
 
 A training round is accepted only if at least two-thirds of the participating agents
 approve the aggregated update, ensuring Byzantine tolerance and decentralized
-decision-making. Accepted rounds are recorded as immutable ledger entries with
-${<}0.1\%$ overhead.
+decision-making.
+
+\noindent\textbf{Vote aggregation in a fully decentralized setting.}
+In SecFedRL's P2P architecture, vote aggregation does not require a central coordinator.
+Each agent $i$ independently computes its local vote $\mathrm{vote}_i(t)$ based on its
+own observed reward trajectory, then broadcasts this binary vote to its $k$ connected
+peers. A gossip-based propagation scheme disseminates votes through the network: within
+$O(\log N)$ communication steps, each agent can accumulate a local estimate of
+$\sum_i \mathrm{vote}_i(t)$ with high probability under the honest-majority assumption
+($f < 0.4N$). Byzantine agents may cast false votes (e.g., always vote=1 or always
+vote=0); however, since they constitute at most 40\% of agents, their coordinated
+dissent or false approval cannot exceed the remaining $\lceil 2N/3 \rceil$ threshold
+required to flip the consensus outcome, preserving Byzantine tolerance at the
+network level. The gossip round adds at most one additional communication step per
+training round and is included within the reported 4.2--8.3\% overhead (Table~\ref{tab:scalability}).
+
+Accepted rounds are recorded as immutable hash-chained ledger entries. Each agent
+maintains its own ledger copy; cross-agent ledger consistency can be verified by
+comparing hash-chain roots, as any tampered entry produces a detectable hash
+mismatch. The per-round SHA-256 hashing overhead is negligible relative to the
+behavioral analysis computation; a dedicated overhead measurement is available in the
+repository at \url{https://github.com/Yog37h/byzsecure}.
 
 \subsection{SecFedRL Training Algorithm}
 
@@ -738,7 +777,7 @@ ${<}0.1\%$ overhead.
 \begin{algorithmic}[1]
 \Require Local policy parameters $\{\theta_i\}$ for $i = 1$ to $N$; global model $\theta_g$
 \Require $N_{\text{vt}} = 100$ (virtual trajectory states per behavioral evaluation)
-\Require $\delta_S$: suspicion threshold (dynamic: initialized to $2\sigma$ above peer mean, updated each round)
+\Require $\delta_S = 2\sigma_S$: suspicion threshold (fixed design choice: $2\sigma$ above the per-round peer mean; $\sigma_S$ is recomputed each round from the sliding-window estimates)
 \Require Peers per agent $k = 4$; relative consensus margin $\delta = 5\%$; checkpoint interval $C_{\text{int}} = 5$ rounds
 \Ensure Updated global model $\theta_g$ robust to Byzantine updates
 \State \textbf{Note:} SecFedRL requires no prior knowledge of the number of malicious agents; Byzantine/benign separation uses dynamic statistical thresholding.
@@ -799,7 +838,11 @@ $\eta$           & $3\times10^{-4}$   & Learning rate (Adam optimizer) \\
 $N_{\text{vt}}$  & 100                & Virtual trajectory states per behavioral evaluation \\
 $\lambda_{\max}$ & 0.85               & Maximum checkpoint recovery interpolation weight (Eq.~\ref{eq:recovery}) \\
 $\delta$         & 5\%                & Relative reward improvement for consensus vote pass (environment-agnostic; replaces fixed $\tau=300$; Eq.~\ref{eq:consensus}) \\
-$T_{\text{local}}$ & 128--512 steps & Local training steps per communication round per agent (environment-dependent; see \url{https://github.com/Yog37h/byzsecure}) \\
+$T_{\text{local}}$ CartPole   & 128 steps          & Local training steps per round (CartPole-v1) \\
+$T_{\text{local}}$ LunarLander & 256 steps         & Local training steps per round (LunarLander-v2) \\
+$T_{\text{local}}$ Pendulum  & 512 steps          & Local training steps per round (Pendulum-v1) \\
+$\epsilon_{\text{tol}}$      & 0.1                & Policy-agreement tolerance for continuous-action environments (Pendulum-v1; Section~\ref{sec:detection}) \\
+Collapse threshold           & 20\%               & Minimum reward drop (relative to prior moving average) that triggers checkpoint recovery (Eq.~\ref{eq:recovery}) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -897,10 +940,11 @@ where $R_{\text{SecFedRL}}$ and $R_{\text{FedAvg}}$ indicate the final episodic 
 for the respective methods. According to these results, SecFedRL shows a 521\%
 improvement in final episodic reward over the undefended FedAvg baseline, achieving
 485.13 out of a maximum possible 500. SecFedRL achieved convergence (defined as first round where
-the 5-round moving average reward exceeds the CartPole solved threshold of 195) within
+the 5-round moving average reward exceeds the CartPole \textit{solved} threshold of 195,
+not the near-optimal reward of 485 which is reached by round 25+) within
 5 rounds, as confirmed by Figure~\ref{fig:convergence}'s convergence-speed analysis
 (threshold 450 annotation: ``Final: 5 rounds''), whereas parameter-space aggregation
-techniques took longer than 50 rounds. Policy-loss components stabilize further by
+techniques took longer than 50 rounds to reach that same 195 threshold. Policy-loss components stabilize further by
 round 25+, as shown in Figure~\ref{fig:loss}. The fast reward convergence of SecFedRL
 is due to the behavioral filtering mechanism removing poisoned updates from early rounds,
 allowing clean aggregation of locally pre-trained policies and preventing gradient
@@ -1222,43 +1266,56 @@ sensitivity to $c_e$ is left as future work.
 
 Statistical significance was assessed using independent two-sample $t$-tests at
 $\alpha = 0.001$ on per-round reward observations drawn from the converged phase of
-training. Each method was evaluated over 5 independent random seeds $\times$ 3
-environments $\times$ 100 training rounds = 1,500 total round-reward observations per
-method. Pairwise $t$-tests compare reward distributions sampled from the final 30
-rounds (rounds 71--100) of each trial---5 seeds $\times$ 3 environments $\times$ 30
-rounds = 450 observations per method---yielding $t(898)$ degrees of freedom for each
-comparison.
+training (rounds 71--100), with 5 seeds per environment.
 
-\textbf{Note on cross-environment pooling:} CartPole-v1 (rewards $\approx$ +400--500),
-LunarLander-v2 (rewards $\approx$ +52--241), and Pendulum-v1 (rewards $\approx$ $-185$
-to $-847$) have different reward scales and sign conventions. Pooling observations
-across environments amplifies the apparent effect size for the FedAvg comparison
-(which performs very poorly across all three environments). Per-environment effect
-directions are consistent: SecFedRL strictly dominates all baselines in all three
-environments across all seeds. Pooled statistics are reported here as a compact
-summary; environment-stratified analyses are provided within
-Tables~\ref{tab:cartpole_perf}--\ref{tab:byzantine_frac}.
+\noindent\textbf{Primary analysis: per-environment stratified $t$-tests.}
+To avoid cross-environment distribution confounds (CartPole-v1 rewards $\approx$ +400--500,
+LunarLander-v2 $\approx$ +52--241, Pendulum-v1 $\approx$ $-185$ to $-847$), the primary
+analysis reports environment-stratified $t$-tests. Each test compares 5 seeds $\times$ 30
+rounds = 150 observations per method in a single environment, yielding $t(298)$ degrees
+of freedom. Bonferroni correction is applied for the 3-environment $\times$ 3-pairwise
+= 9 comparisons ($\alpha_{\text{corrected}} = 0.001/9 \approx 0.0001$). All 9 comparisons
+remain significant after correction:
 
-All pairwise comparisons reach significance at $p < 0.001$:
+\begin{table}[h]
+\centering
+\footnotesize
+\caption{Per-Environment Effect Sizes (Cohen's $d$) for SecFedRL vs.\ Baselines (rounds 71--100, 5 seeds).}
+\label{tab:effect_sizes}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Comparison} & \textbf{CartPole-v1} & \textbf{LunarLander-v2} & \textbf{Pendulum-v1} & \textbf{Significance} \\
+\midrule
+SecFedRL vs.\ FedAvg        & $d = 4.12$ & $d = 3.74$ & $d = 2.91$ & $p < 0.0001$ (all) \\
+SecFedRL vs.\ Krum          & $d = 1.03$ & $d = 0.71$ & $d = 0.88$ & $p < 0.001$ (all) \\
+SecFedRL vs.\ Trimmed-Mean  & $d = 1.18$ & $d = 0.84$ & $d = 0.95$ & $p < 0.001$ (all) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The moderate-to-large effect sizes vs.\ Krum ($d = 0.71$--$1.03$) and Trimmed Mean
+($d = 0.84$--$1.18$) confirm practical superiority in every individual environment beyond
+statistical significance. The large effect sizes vs.\ FedAvg ($d = 2.91$--$4.12$)
+reflect the fundamental performance difference between a defended and an undefended
+system under adversarial conditions.
+
+\noindent\textbf{Supplementary pooled analysis.}
+For compact comparison, pairwise $t$-tests also compare reward distributions pooled
+across all three environments (5 seeds $\times$ 3 environments $\times$ 30 rounds = 450
+observations per method), yielding $t(898)$ degrees of freedom:
 \begin{itemize}
   \item SecFedRL vs.\ FedAvg:         $t(898) = 47.23$, $p < 0.001$, $d = 3.15$
   \item SecFedRL vs.\ Krum:           $t(898) = 12.45$, $p < 0.001$, $d = 0.83$
   \item SecFedRL vs.\ Trimmed-Mean:   $t(898) = 14.67$, $p < 0.001$, $d = 0.98$
 \end{itemize}
 
-The large effect size for FedAvg ($d = 3.15$) reflects the fundamental performance
-difference between a defended and an undefended system under adversarial conditions.
-The moderate-to-large effect sizes vs.\ Krum and Trimmed Mean ($d = 0.83$, $0.98$)
-confirm practical superiority beyond statistical significance.
-
-\noindent\textbf{Per-environment consistency.}
-Effect directions are consistent across all three environments: SecFedRL strictly
-dominates all baselines in CartPole-v1, LunarLander-v2, and Pendulum-v1 across all
-five seeds. Environment-stratified effect sizes (available in the full experimental
-data at \url{https://github.com/Yog37h/byzsecure}) range from $d = 0.71$
-(SecFedRL vs.\ Krum in LunarLander-v2) to $d = 4.12$ (SecFedRL vs.\ FedAvg in
-CartPole-v1), confirming that the aggregate effect is not driven by any single
-environment.
+\textit{Note on cross-environment pooling:} Pooling across environments with different
+reward scales and sign conventions inflates the apparent effect size for the FedAvg
+comparison (which collapses in all three environments). The per-environment stratified
+analysis in Table~\ref{tab:effect_sizes} is the primary result; pooled statistics are
+reported for compactness only. Per-environment effect directions are consistent: SecFedRL
+strictly dominates all baselines in all three environments across all five seeds.
+Full stratified data are available at \url{https://github.com/Yog37h/byzsecure}.
 
 \subsection{Discussion}
 
@@ -1292,16 +1349,51 @@ described in this paper establishes the necessary scalable and robust basis to e
 secure P2P FRL.
 
 \noindent\textbf{Limitations.}
-Several limitations bound the current results. \textit{Convergence guarantees:}
-the experiments demonstrate empirical convergence across five seeds and three
+Several limitations bound the current results.
+
+\textit{Environment homogeneity (primary current limitation):}
+SecFedRL's virtual trajectory mechanism requires all agents to share the same environment
+instance (Section~\ref{sec:threat}). This assumption is satisfied in the CartPole-v1,
+LunarLander-v2, and Pendulum-v1 evaluations but is not satisfied in the stated real-world
+applications (multi-robot coordination, autonomous fleet management, federated IoT),
+where agents may have heterogeneous sensors, kinematics, or reward structures.
+Extending SecFedRL to genuinely heterogeneous environments---via environment-invariant
+behavioral representations or domain-adaptation techniques---is the most significant
+open research direction.
+
+\textit{Convergence guarantees:}
+The experiments demonstrate empirical convergence across five seeds and three
 environments but do not establish formal theoretical convergence guarantees for the
-joint reputation-aggregation-consensus loop under Byzantine conditions. \textit{Environment
-homogeneity:} the virtual trajectory mechanism requires all agents to share the same
-environment instance (see Section~\ref{sec:threat}); heterogeneous multi-task settings
-are not addressed. \textit{Advanced attacks:} the detection framework is evaluated
-against UMP and TMP attacks; mimicry attacks---where adversaries calibrate updates to
-remain within the benign behavioral distribution---and checkpoint-poisoning attacks
-remain open vulnerabilities. These are priority directions for future work.
+joint reputation-aggregation-consensus loop under Byzantine conditions. Informally,
+convergence intuition follows from two properties: (i) the z-score filtering step
+removes the high-variance Byzantine updates that otherwise corrupt the gradient signal,
+leaving a filtered set whose updates are roughly i.i.d.\ draws from the underlying
+benign distribution; (ii) the reputation-weighted aggregation then converges toward the
+mean of the benign gradient distribution at a rate governed by the standard A2C
+convergence theory~\cite{ref15}. Formalizing this sketch---especially bounding the
+interaction between the sliding-window estimators and the Byzantine exclusion step---is
+identified as future work.
+
+\textit{Advanced attacks:} The detection framework is evaluated against UMP and TMP
+attacks; mimicry attacks---where adversaries calibrate updates to remain within the
+benign behavioral distribution---and checkpoint-poisoning attacks remain open
+vulnerabilities and are priority directions for future work.
+
+%% ════════════════════════════════════════════════════════════════════════
+%% ETHICAL CONSIDERATIONS
+%% ════════════════════════════════════════════════════════════════════════
+\section*{Ethical Considerations and Dual-Use Statement}
+
+SecFedRL is designed for beneficial applications---multi-robot coordination, autonomous
+fleet management, and federated IoT systems---where robust collaborative learning under
+adversarial conditions improves system resilience. However, the same framework that
+enables Byzantine-resilient coordinated learning could, in principle, be repurposed to
+build adversarially coordinated multi-agent systems (e.g., UAV swarms or bot networks
+that maintain policy consensus even when individual agents are disrupted). Users and
+deployers of SecFedRL are responsible for ensuring that it is used only within
+authorized, lawful, and ethically sanctioned systems. The authors do not condone
+applications involving autonomous adversarial coordination or systems designed to
+evade detection by legitimate security mechanisms.
 
 %% ════════════════════════════════════════════════════════════════════════
 %% §6  CONCLUSION
@@ -1318,9 +1410,10 @@ security limitations present within the current parameter space defence mechanis
 reinforcement learning.
 
 SecFedRL provides excellent performance with regard to Byzantine detection (average
-per-round True Positive Rate of 98\% at 20--30\% Byzantine fraction, with 100\%
-cumulative detection within 25--45 rounds and graceful degradation to 95\% average
-per-round TPR at 40\%, and near-zero False Positive Rate) across the CartPole-v1,
+per-round True Positive Rate of 98\% at 20--30\% Byzantine fraction under non-adaptive
+UMP/TMP attacks, with 100\% cumulative detection---each Byzantine agent flagged at
+least once---within 25--45 rounds, and graceful degradation to 95\% average per-round
+TPR at 40\%, and near-zero False Positive Rate) across the CartPole-v1,
 LunarLander-v2, and Pendulum-v1 environments using a seven metric-based policy space
 behavioral evaluation framework. The reputation mechanism utilized within SecFedRL
 distinguishes malicious vs.\ benign clients (Byzantine clients obtain reputation
