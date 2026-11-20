@@ -335,7 +335,7 @@ framework combining (i) ground-truth-free policy-space behavioral Byzantine dete
 catastrophic collapse prevention, and (iv) lightweight auditability---all within a
 fully decentralized FRL architecture. SecFedRL fills these gaps with virtual-trajectory
 consistency scoring, multi-metric behavioral analysis, reputation-based weighting,
-checkpoint-based recovery, and blockchain-backed consensus.
+checkpoint-based recovery, and hash-chained ledger consensus.
 
 Table~\ref{tab:comparison} provides a comparative analysis of existing federated
 learning defence mechanisms across seven key capability dimensions.
@@ -447,11 +447,11 @@ each agent $i \in [1,N]$ communicates with $k$ randomly selected peers
 ($k \in [2,6]$), resulting in an $O(kn)$ communication complexity that is independent
 of the total number of agents $N$. Each training round $t$ includes seven phases:
 \begin{enumerate}
-  \item local agent A2C training on agent-specific trajectories
-  \item Virtual agent to Virtual agent P2P model swap with $k$ agents
-  \item Analyse based on virtual trajectory data to identify agent behaviors
-  \item The aggregated update of each validated and approved agent update
-  \item Collapse detection and agent local checkpoint recovery
+  \item Local agent A2C training on agent-specific trajectories
+  \item Agent-to-agent P2P model exchange with $k$ peers
+  \item Behavioral analysis of virtual trajectory data to identify peer behaviors
+  \item Reputation-aware aggregation of validated and approved peer updates
+  \item Collapse detection and local checkpoint recovery
   \item Performance-based consensus voting
   \item Hash-chained ledger recording
 \end{enumerate}
@@ -802,7 +802,7 @@ $T_{\text{local}}$ & 128--512 steps & Local training steps per communication rou
 \section{Results and Discussion}
 \label{sec:results}
 
-A comprehensive evaluation of SecFedRL will be described in this section within the
+This section presents a comprehensive evaluation of SecFedRL within the
 context of adversarial FRL. Several features were included in the assessment including
 robustness to Byzantine attacks, detection accuracy, adaptability to various
 environments, scalability, and capability of contributing components. The evaluation
@@ -1078,7 +1078,7 @@ standard deviation under attack (0.0462) remains only marginally higher than wit
 attack (0.0344), confirming stable learning dynamics. In the case of CartPole, a
 representative collapse produced a major loss in episodic reward from 460.3 to just
 9.4, resulting in Tier-1 recovery and restoring the episodic reward back to 483.4
-after just one round. Contrarily, during a collapse of a baseline method, the method
+after just one round. In contrast, during a collapse of a baseline method, the method
 produced a permanent failure.
 
 \subsection{Robustness to Increasing Byzantine Fractions}
@@ -1306,11 +1306,11 @@ In this paper, SecFedRL was presented as a comprehensive framework for P2P FRL t
 Byzantine resilient. The approach that was taken to develop SecFedRL includes four key
 components: (1) Policy Space Behavioral Detection; (2) Ground Truth Free Reputation
 Learning; (3) Catastrophic Collapse Prevention; and (4) Lightweight and Decentralized
-Consensus. These four components combined together to provide a solution to the
+Consensus. These four components combined to provide a solution to the
 security limitations present within the current parameter space defence mechanisms of
 reinforcement learning.
 
-SecFedRL provides excellent performance with regards to Byzantine Detection (average
+SecFedRL provides excellent performance with regard to Byzantine detection (average
 per-round True Positive Rate of 98\% at 20--30\% Byzantine fraction, with 100\%
 cumulative detection within 25--45 rounds and graceful degradation to 95\% average
 per-round TPR at 40\%, and near-zero False Positive Rate) across the CartPole-v1,
@@ -1322,7 +1322,7 @@ partially overlap in the 0.64--0.73 boundary region, the composite suspicion sco
 $S_j$ provides a separating margin of $0.15+$ standard deviations above the benign
 mean, enabling correct classification without any dependencies on trusted validation
 data sets. In addition, the three-tiered checkpoint recovery mechanisms of SecFedRL
-prevent irreversible policy collapse through the consistent continuation of recovery.
+prevent irreversible policy collapse through timely checkpoint recovery.
 
 Through comprehensive testing across 15 independent experiment runs (5 seeds $\times$
 3 environments, 100 rounds each), SecFedRL shows 362--521\% improvement in final
@@ -1334,13 +1334,13 @@ Pendulum: 88\%) while under significant Byzantine attacks. There is graceful
 degradation of performance with respect to up to 40\% of agents acting adversarially
 during the task.
 
-Also, SecFedRL shows faster convergence under adversarial conditions than leading
+Additionally, SecFedRL demonstrates faster convergence under adversarial conditions than leading
 state-of-the-art methods (5 rounds to reach high-performance reward threshold $\geq$450
 in CartPole-v1 under poisoning, compared to more than 50 rounds for parameter-space
 baselines; see Figure~\ref{fig:convergence} and Table~\ref{tab:cartpole_perf}), while
 only requiring 4.2\% additional computational time, indicating the practicality of SecFedRL for
 real-world deployment of decentralized learning environments. In general, SecFedRL
-provides a method for enabling trustful learning through collaborative communication
+provides a method for enabling trustworthy learning through collaborative communication
 between the various agents in an adversarial, decentralized environment. This opens up
 many different types of applications to use SecFedRL such as coordination of multiple
 robots, fleets of autonomous vehicles, and federated Internet of Things (IoT)
@@ -1348,12 +1348,12 @@ ecosystems. This work establishes a strong foundation for secure, scalable, and
 resilient federated reinforcement learning, advancing the development of decentralized
 autonomous intelligent systems.
 
-Future work will explore the ability to extend SecFedRL to high-dimensional visual
-reinforcement learning applications, establish formal guarantees for converging to the
-same set of policies between all of those agents, provide adaptive defences against
-colluding adversaries through the use of a decentralized mechanism, and establish an
-asynchronous communication protocol between multiple heterogeneous edge platform
-agents.
+Future work will explore extending SecFedRL to high-dimensional visual
+reinforcement learning applications, establishing formal convergence guarantees
+for the joint reputation-aggregation-consensus loop among all agents, providing
+adaptive defences against colluding adversaries via a decentralized mechanism,
+and establishing an asynchronous communication protocol for heterogeneous edge
+platform agents.
 
 %% ════════════════════════════════════════════════════════════════════════
 %% DATA AVAILABILITY STATEMENT
