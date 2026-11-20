@@ -178,7 +178,7 @@ Byzantine adversaries. It also delivers 362--521\% improvement in cumulative rew
 over the undefended baseline across environments (CartPole-v1: +521\%,
 LunarLander-v2: +362\%) and maintains 88--97\% task success rates (CartPole: 97\%,
 LunarLander: 96\%, Pendulum: 88\%) under 20--30\% adversarial participation, with only
-a modest computational overhead of 4.9--8.3\%.
+a modest computational overhead of 4.2--8.3\%.
 
 \subsection*{Main Contributions}
 
@@ -410,18 +410,19 @@ Algorithm~\ref{alg:secfedrl}, and the hyperparameters are listed in
 Table~\ref{tab:hyperparams}.
 
 \subsection{Threat Model}
+\label{sec:threat}
 
 SecFedRL is designed assuming that Byzantine adversaries can control local model
 updates, manipulate reward structures or gradients in arbitrary ways, and inflict
 malicious attacks (by scaling updates, sign-flipping updates, conducting
 policy-targeted poisonings, and/or coordinated attacks) on local agents. Byzantine
-adversaries can control no more than 40\% of participating agents ($f < 0.4n$), which
+adversaries can control no more than 40\% of participating agents ($f < 0.4N$), which
 is consistent with all currently known practical threat models in distributed RL.
-Additionally, Byzantine malicious adversaries generally do not have access to
+Additionally, Byzantine adversaries generally do not have access to
 cryptographic mechanisms (such as SHA-256 hashing) and cannot maintain control of the
-consensus mechanism ($2n/3$ threshold). Neither a trusted server nor ground-truth
+consensus mechanism ($\lceil 2N/3 \rceil$ threshold). Neither a trusted server nor ground-truth
 labels need to be trusted; this yields an honest/respected majority assumption
-($f < n/2$) for all agents. Byzantine adversaries will have only grey-box information
+($f < N/2$) for all agents. Byzantine adversaries will have only grey-box information
 about the agents' learning protocol and will not know their own private trajectories or
 internal reputation scores. The goal of manipulating or compromising other agent
 mechanisms is to lower the overall performance of the collective policy or create
@@ -525,7 +526,7 @@ virtual trajectory consistency scoring in Section~\ref{sec:detection}.
 
 Each agent trains its own A2C model based on Generalized Advantage Estimation (GAE)
 using its own independent experience. The agents' model policy $\pi(a|s)$ and value
-function $V(s)$ share a convolutional feature extraction network with separate actor
+function $V(s)$ share a shared fully connected (MLP) feature extraction network with separate actor
 and critic output networks. The optimization objective is:
 \begin{equation}
   L(\theta) = L_\pi(\theta) + c_v \cdot L_V(\theta) - c_e \cdot H(\pi(\cdot|s))
@@ -551,7 +552,7 @@ Figure~\ref{fig:training} shows that the cumulative rewards of agents demonstrat
 continuous upward trend. As agents learn and implement optimal policies over time, the
 reward trend is steadily increasing. The episode step trend illustrates that with each
 increment in rounds, agents' episode steps are converging to be stable. Variability
-among agents in different environments results in temporary variances in performance.
+among agents in different environments results in temporary variations in performance.
 However, as the reward standard deviation progressively stabilises, this indicates that
 agents' policies update consistently, supporting the stability and convergence of the
 local A2C training method.
@@ -580,8 +581,15 @@ behavioral inconsistency, critic corruption, and parameter anomalies:
   P_{\text{agree}}(\pi_i, \pi_j) =
     \mathbb{E}_{s'}\!\left[\mathbf{1}\!\left(\argmax_a \pi_i(a|s') = \argmax_a \pi_j(a|s')\right)\right]
 \]
+\noindent\textit{Continuous-action note (Pendulum-v1):} For a Gaussian policy
+$\pi_i(\cdot|s')=\mathcal{N}(\mu_i(s'),\sigma_i^2(s'))$, the mode is
+$\operatorname{argmax}_a\pi_i(a|s')=\mu_i(s')$. Policy agreement is therefore
+evaluated as $\mathbf{1}\!\left(|\mu_i(s')-\mu_j(s')|\leq\epsilon_{\text{tol}}\right)$
+with tolerance $\epsilon_{\text{tol}}=0.1$ (see Table~\ref{tab:hyperparams}).
 
 \noindent\textbf{Value alignment:}
+Here $V_i(s')$ denotes the critic output of agent $i$'s value function (defined in
+Section~\ref{sec:a2c}):
 \[
   V_{\text{align}}(i,j) =
     \max\!\left(0,\; 1 - \frac{|V_i(s') - V_j(s')|}{\max(|V_i(s')|,\, |V_j(s')|) + \varepsilon}\right)
@@ -647,7 +655,7 @@ where:
   \item $C_j$ = behavioral consistency score ($1 - S_j / \max_k S_k$)
   \item $G_j$ = gradient alignment score (cosine similarity of $\nabla\theta_j$ and $\nabla\theta_g$)
   \item $\alpha = 0.9$ = exponential moving average decay factor
-  \item $\beta_1 = \beta_2 = \beta_3 = 1/3$ = component weights (equal weighting)
+  \item $\beta_1 = \beta_2 = \beta_3 = 1/3$ = component weights (equal weighting; $\beta_1+\beta_2+\beta_3=1$ required)
   \item Initial reputation $r_j(0) = 0.5$ for all peers
 \end{itemize}
 
@@ -1114,15 +1122,14 @@ degradation under adversarial conditions.
 
 \noindent\textbf{Threshold-corruption analysis.}
 The TPR degradation at 40\% Byzantine fraction (from 98\% to 95\%) warrants further
-explanation. At this fraction, the consensus threshold ($\geq 2n/3$) requires that at
+explanation. At this fraction, the consensus threshold ($\geq \lceil 2N/3 \rceil$) requires that at
 least two-thirds of agents agree on a round's validity. With 40\% Byzantine agents, the
-honest majority ($60\%$) still exceeds the two-thirds threshold ($\approx 66.7\%$) only
-marginally. This tight margin means that Byzantine agents can cast coordinated dissent
+honest majority ($60\%$) falls marginally short of the two-thirds threshold ($\approx 66.7\%$) by approximately 7 percentage points. Even so, Byzantine agents can cast coordinated dissent
 votes to slow consensus, increasing the probability that individual rounds slip through
 undetected by the behavioral analysis before the full 10-round sliding window
 accumulates sufficient statistics. The result is a modest but measurable reduction in
 per-round TPR. This phenomenon confirms that the safety bound of SecFedRL's consensus
-mechanism aligns with its stated assumption of $f < 0.4n$ Byzantine participants: beyond
+mechanism aligns with its stated assumption of $f < 0.4N$ Byzantine participants: beyond
 this fraction the statistical margins narrow, and the detection guarantees weaken.
 
 \subsection{Scalability Analysis}
@@ -1302,7 +1309,7 @@ remain open vulnerabilities. These are priority directions for future work.
 \section{Conclusion}
 \label{sec:conclusion}
 
-In this paper, SecFedRL was presented as a comprehensive framework for P2P FRL that is
+In this paper, SecFedRL is presented as a comprehensive framework for P2P FRL that is
 Byzantine resilient. The approach that was taken to develop SecFedRL includes four key
 components: (1) Policy Space Behavioral Detection; (2) Ground Truth Free Reputation
 Learning; (3) Catastrophic Collapse Prevention; and (4) Lightweight and Decentralized
