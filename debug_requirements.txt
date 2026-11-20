@@ -1,3 +1,0 @@
-# Additional requirements for debugging functionality
-psutil>=5.8.0
-GPUtil>=1.4.0
