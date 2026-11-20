@@ -533,6 +533,7 @@ behavioral detection plugin imposes a bounded and proportional cost within accep
 limits for the federated training loop.
 
 \subsection{Local Actor-Critic Training}
+\label{sec:a2c}
 
 A2C with GAE is selected for its established use in FRL convergence analysis~\cite{ref15}
 and its tractable gradient variance under the trajectory heterogeneity characteristic of
@@ -840,7 +841,7 @@ repository at \url{https://github.com/Yog37h/byzsecure}.
 \centering
 \caption{Hyperparameters.}
 \label{tab:hyperparams}
-\begin{tabular}{lll}
+\begin{tabular}{llp{7cm}}
 \toprule
 \textbf{Parameter} & \textbf{Value} & \textbf{Description} \\
 \midrule
@@ -1312,7 +1313,8 @@ Estimates are reported in Table~\ref{tab:metric_ablation}.
 \centering
 \caption{Per-Metric Plugin Ablation --- analytical estimate from per-metric attack-coverage analysis (CartPole-v1 setting, 20\% Byzantine UMP+TMP; no reputation or collapse prevention). The 7-metric row is the directly measured ``Plugin Only'' value from Table~\ref{tab:ablation}; rows marked $\dagger$ are analytically estimated from the attack signatures each metric group covers (Section~\ref{sec:detection}).}
 \label{tab:metric_ablation}
-\begin{tabular}{lccc}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{p{5cm}ccp{3.5cm}}
 \toprule
 \textbf{Metric Configuration} & \textbf{Avg Per-Round TPR} & \textbf{Final Reward} & \textbf{Coverage gap} \\
 \midrule
@@ -1323,7 +1325,8 @@ Estimates are reported in Table~\ref{tab:metric_ablation}.
 \midrule
 \textit{Full SecFedRL} (7-metric + Rep.\ + Collapse) & \textit{98\%} & \textit{$485.13 \pm 8.2$} & \textit{Reference} \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{table}
 
 The analysis establishes that the multi-metric composite is not superfluous. KL divergence
