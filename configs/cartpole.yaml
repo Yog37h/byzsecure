@@ -1,0 +1,30 @@
+# CartPole-v1 configuration
+env: CartPole-v1
+n_agents: 20
+k_peers: 4
+t_local: 128
+rounds: 100
+seeds: 5
+
+# A2C hyperparameters
+gamma: 0.99
+gae_lambda: 0.95
+lr: 3.0e-4
+c_v: 0.5
+c_e: 0.01
+hidden: 128
+
+# Detection
+n_vt: 100
+sliding_window: 10
+
+# Reputation
+alpha_rep: 0.9
+
+# Consensus
+delta_consensus: 0.05
+
+# Recovery
+lambda_max: 0.85
+collapse_threshold: 0.20
+checkpoint_interval: 5
